@@ -70,9 +70,43 @@ Function that writes the entire point cloud including the segment_id of each poi
 
 Input:
    filepath:  path of the .ply file to write the points with segment id
-*/
-void PlaneDetector::write_ply(std::string filepath) {}
 
+Template:
+	ply
+	format ascii 1.0
+	element vertex 10000
+	property float x
+	property float y
+	property float z
+	property int segment_id
+	end_header
+	85176.77 446742.10 1.49 0
+	85175.69 446742.58 1.52 1
+	85174.45 446741.94 9.52 1
+*/
+void PlaneDetector::write_ply(std::string filepath) {
+
+	std::ofstream file(filepath);
+	char buffer[50];
+
+	file << "ply" << "\n";
+	file << "format ascii 1.0" << "\n";
+	file << "property float x" << "\n";
+	file << "property float y" << "\n";
+	file << "property float z" << "\n";
+	file << "property int segment_id" << "\n";
+	file << "end_header" << "\n";
+
+	for (int i = 0; i < _input_points.size(); i++) {
+		sprintf(buffer, "%f %f %f %d", 
+			_input_points[i].x,
+			_input_points[i].y,
+			_input_points[i].z,
+			_input_points[i].segment_id
+		);
+		file << buffer << "\n";
+	}
+	file.close();
 }
 
 /*
