@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 	if (argc == 2) {
 		json_path = argv[1];
 	}
-	
+
 	//-- set current working directory to the parent directory of json_path. As a result the
 	//-- filepaths in the json file will be read relative to the location of the json file
 	fs::path working_directory = fs::path(json_path).parent_path();
@@ -66,15 +66,15 @@ int main(int argc, char** argv)
 	}
 
 	//-- perform plane detection and time how long it takes
-  auto start = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
 
 	for (int i = 0; i < n_planes; ++i) {
 		detector.detect_plane(epsilon, min_score, k);
 	}
 
-  auto finish = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = finish - start;
-  std::cout << std::fixed << std::setprecision(3) << "--- Plane detection took " << elapsed.count() << " seconds ---" << std::endl;
+	auto finish = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> elapsed = finish - start;
+	std::cout << std::fixed << std::setprecision(3) << "--- Plane detection took " << elapsed.count() << " seconds ---" << std::endl;
 
 
 	//-- open the viewer
