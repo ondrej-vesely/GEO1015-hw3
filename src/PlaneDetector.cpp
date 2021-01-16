@@ -80,7 +80,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		double3 norm = normalize(cross(v1, v2));
 
 		// Get params of sampled plane
-		float
+		double
 			A = norm[0],
 			B = norm[1],
 			C = norm[2],
@@ -93,7 +93,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 			Point p = _input_points[i];
 			if (p.segment_id != 0) continue;
 
-			float dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
+			double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
 			if (dist_pow < epsilon * epsilon) {
 				inliers.push_back(i);
 			}
