@@ -61,10 +61,10 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
 
 
-	// Vector for indexes of best match
+	// Indices of pts in best result
 	std::vector<int> best = {};
 
-	// Do k attempts to find best match
+	// Do k attempts to find best result
 	for (int _k = 0; _k < k; _k++) {
 
 		// Sample 3 unique points
@@ -111,7 +111,35 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 			_input_points[best[i]].segment_id = _plane_count;
 		}
 	}
+}
 
+
+/*
+Function that calculates A,B,C,D params of plane defined by 3 points.
+Input:
+	pts:		Vector of 3 points.
+Output:
+	Vector of 4 floats defining plane as Ax+By+Cz+D=0.
+*/
+std::vector<float> _plane(std::vector<double3> pts) {
+
+	double3
+		pt1 = pts[0],
+		pt2 = pts[1],
+		pt3 = pts[2];
+
+	double3 v1 = pt2 - pt1;
+	double3 v2 = pt3 - pt1;
+	double3 norm = normalize(cross(v1, v2));
+
+	float
+		A = norm[0],
+		B = norm[1],
+		C = norm[2],
+		D = -A * pt1.x - B * pt1.y - C * pt1.z;
+
+	std::vector<float> result = { A, B, C, D };
+	return result;
 }
 
 /*
