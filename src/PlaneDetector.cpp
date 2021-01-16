@@ -61,40 +61,79 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
 
 
-	// vector for indexes of points in best match
-	std::vector<int> best_pts = {};
+	// Vector for indexes of best match
+	std::vector<int> best = {};
 
-	// k attempts to find best match
+	// Do k attempts to find best match
 	for (int _k = 0; _k < k; _k++) {
 
 		// Sample 3 unique points
-		std::vector<PlaneDetector::Point> pts = sample(3);
-		PlaneDetector::Point 
+		std::vector<Point> pts = sample(3);
+		Point 
 			pt1 = pts[0], 
 			pt2 = pts[1], 
 			pt3 = pts[2];
+
+		// Get vectors of sampled plane
+		double3 v1 = { pt2.x - pt1.x , pt2.y - pt1.y , pt2.z - pt1.z };
+		double3 v2 = { pt3.x - pt1.x , pt3.y - pt1.y , pt3.z - pt1.z };
+		double3 norm = normalize(cross(v1, v2));
+
+		// Get params of sampled plane
+		float
+			A = norm[0],
+			B = norm[1],
+			C = norm[2],
+			D = -A * pt1.x - B * pt1.y - C * pt1.z;
+
+		// Check distance to plane to find inliers
+		std::vector<int> inliers = {};
+
+		for (int i = 0; i < _input_points.size(); i++) {
+			Point p = _input_points[i];
+			if (p.segment_id != 0) continue;
+
+			float dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
+			if (dist_pow < epsilon * epsilon) {
+				inliers.push_back(i);
+			}
+		}
+		// Found new best result?
+		if (inliers.size() > min_score && inliers.size() > best.size()) {
+			best = inliers;
+		}
+	}
+
+	// If the best better than minimal score, segment it
+	if (best.size() > min_score) {
+		_plane_count++;
+		for (int i = 0; i < best.size(); i++) {
+			_input_points[best[i]].segment_id = _plane_count;
+		}
 	}
 
 }
 
 /*
-Function that returns n unique points sampled from the _input_points
+Function that samples n unique unsegmented points from the _input_points
 Input: 
 	n:		Number of samples to find
 Output:
-	Vector of <PlaneDetector::Point>s
+	std::vector of sampled <PlaneDetector::Point>s
 */
 std::vector<PlaneDetector::Point> PlaneDetector::sample(int n) {
 
 	std::vector<int> samples(n);
-	std::vector<PlaneDetector::Point> result(n);
+	std::vector<Point> result(n);
 	std::uniform_int_distribution<int> distrib(0, _input_points.size()-1);
 
 	if (n > _input_points.size()) return _input_points;
 
 	for (int i = 0; i < n; i++) {
 		int rand = distrib(_rand);
-		while (std::count(samples.begin(), samples.end(), rand)) {
+		while (std::count(samples.begin(), samples.end(), rand) 
+			|| _input_points[rand].segment_id != 0) 
+		{
 			rand = distrib(_rand);
 		}
 		samples[i] = rand;

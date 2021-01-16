@@ -39,12 +39,11 @@ public:
 		int segment_id{ 0 };
 	};
 	
-
 	//-- The main plane detection function where you need to implement the RANSAC algorithm (in the PlaneDetector.cpp file)
 	void detect_plane(double epsilon, int min_score, int k);
 
-	//-- Randomly sampling points from input points.
-	std::vector<Point> PlaneDetector::sample(int n);
+	//-- Sample from yet unsegmented input points
+	std::vector<Point> sample(int n);
 
 	//-- .PLY reading (already implemented for you)
 	bool read_ply(std::string filepath);
@@ -57,6 +56,9 @@ public:
 	};
 
 private:
+
+	//-- Current count of segmented planes
+	int _plane_count = 0;
 
 	//-- This variable holds the entire input point cloud after calling read_ply()
 	std::vector<Point> _input_points;
