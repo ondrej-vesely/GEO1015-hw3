@@ -23,13 +23,8 @@ The main class of this assignment. You are allowed to add functions and member v
 */
 class PlaneDetector {
 
-
 	//-- you can add your own variables and functions here
 
-
-	/*
-	!!! DO NOT MODIFY below this line !!!
-	*/
 public:
 
 	/*
@@ -43,9 +38,13 @@ public:
 		using double3::double3;
 		int segment_id{ 0 };
 	};
+	
 
 	//-- The main plane detection function where you need to implement the RANSAC algorithm (in the PlaneDetector.cpp file)
 	void detect_plane(double epsilon, int min_score, int k);
+
+	//-- Randomly sampling points from input points.
+	std::vector<Point> PlaneDetector::sample(int n);
 
 	//-- .PLY reading (already implemented for you)
 	bool read_ply(std::string filepath);

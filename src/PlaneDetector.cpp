@@ -59,13 +59,54 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
 	//-- see https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution for more info
 
+
+
+	// vector for indexes of points in best match
+	std::vector<int> best_pts = {};
+
+	// k attempts to find best match
+	for (int _k = 0; _k < k; _k++) {
+
+		// Sample 3 unique points
+		std::vector<PlaneDetector::Point> pts = sample(3);
+		PlaneDetector::Point 
+			pt1 = pts[0], 
+			pt2 = pts[1], 
+			pt3 = pts[2];
+	}
+
 }
+
+/*
+Function that returns n unique points sampled from the _input_points
+Input: 
+	n:		Number of samples to find
+Output:
+	Vector of <PlaneDetector::Point>s
+*/
+std::vector<PlaneDetector::Point> PlaneDetector::sample(int n) {
+
+	std::vector<int> samples(n);
+	std::vector<PlaneDetector::Point> result(n);
+	std::uniform_int_distribution<int> distrib(0, _input_points.size()-1);
+
+	if (n > _input_points.size()) return _input_points;
+
+	for (int i = 0; i < n; i++) {
+		int rand = distrib(_rand);
+		while (std::count(samples.begin(), samples.end(), rand)) {
+			rand = distrib(_rand);
+		}
+		samples[i] = rand;
+		result[i] = _input_points[rand];
+	}
+	return result;
+}
+
 
 // PLY I/O
 
 /*
-!!! TO BE COMPLETED !!!
-
 Function that writes the entire point cloud including the segment_id of each point to a .ply file
 
 Input:
