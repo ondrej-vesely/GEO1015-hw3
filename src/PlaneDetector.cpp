@@ -91,6 +91,7 @@ void PlaneDetector::write_ply(std::string filepath) {
 
 	file << "ply" << "\n";
 	file << "format ascii 1.0" << "\n";
+	file << "element vertex " << _input_points.size() << "\n";
 	file << "property float x" << "\n";
 	file << "property float y" << "\n";
 	file << "property float z" << "\n";
