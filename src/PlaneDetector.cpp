@@ -40,26 +40,13 @@ Output:
 */
 void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
-	//-- TIP
-	//-- access the input points from the _input_points:
-
-	//   double x_of_point_i = _input_points[i].x;
-	//   int segment_id_of_point_i = _input_points[i].segment_id;
-
-	//-- set the segment_id of point i:
-
-	//   _input_points[i].segment_id = 1;
-
-
-	//-- TIP
-	//-- Generating random numbers between 0 and 100
-
-	// std::uniform_int_distribution<int> distrib(0, 100);
-	// int my_random_number = distrib(_rand);
-
-	//-- see https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution for more info
-
-
+	// Only on the first run
+	// Build kd-tree and compute normal estimates
+	if (!_kdtree_built) {
+		_build_kdtree();
+		_estimate_normals(epsilon*2);
+		_kdtree_built = true;
+	}
 
 	// Indices of pts in best result
 	std::vector<int> best = {};
@@ -68,7 +55,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 	for (int _k = 0; _k < k; _k++) {
 
 		// Sample 3 unique points
-		std::vector<Point> pts = sample(3);
+		std::vector<Point> pts = _sample(3);
 		Point 
 			pt1 = pts[0], 
 			pt2 = pts[1], 
@@ -86,16 +73,22 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 			C = norm[2],
 			D = -A * pt1.x - B * pt1.y - C * pt1.z;
 
-		// Check distance to plane to find inliers
+		// Loop trough all points 
+		// Ignore point if its already in another segment
+		// Check if point is close enough and has similar normal
+		// If both yes, collect it's index
 		std::vector<int> inliers = {};
 
 		for (int i = 0; i < _input_points.size(); i++) {
 			Point p = _input_points[i];
+	
 			if (p.segment_id != 0) continue;
 
 			double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
 			if (dist_pow < epsilon * epsilon) {
-				inliers.push_back(i);
+				if (abs(linalg::dot(norm, p.normal)) > 0.8 || p.normal == double3{ 0,0,0 }) {
+					inliers.push_back(i);
+				}
 			}
 		}
 		// Found new best result?
@@ -103,8 +96,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 			best = inliers;
 		}
 	}
-
-	// If the best better than minimal score, segment it
+	// If the best better than threshold, create a new plane
 	if (best.size() > min_score) {
 		_plane_count++;
 		for (int i = 0; i < best.size(); i++) {
@@ -115,7 +107,89 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
 
 /*
-Function that calculates A,B,C,D params of plane defined by 3 points.
+Build KDTree from _input_points.
+Input:
+Output:
+	PlaneDetector._kdtree
+*/
+void PlaneDetector::_build_kdtree() {
+
+	std::vector<std::vector<double>> points;
+
+	for (int i = 0; i < _input_points.size(); i++) {
+		Point p = _input_points[i];
+		std::vector<double> pt = { p.x, p.y, p.z };
+		points.push_back(pt);
+	}
+	_kdtree = KDTree(points);
+}
+
+
+/*
+Calculate normal vector of a plane fitted trough a group of points
+Input:
+	Vector of Vector3d (Eigen class) coords
+Output:
+	Plane's normal as double3 (linalg class)
+*/
+double3 norm_from_points(std::vector<Vector3d> pts)
+{
+	// copy coordinates to  matrix in Eigen format
+	size_t num_atoms = pts.size();
+	Eigen::Matrix< Vector3d::Scalar, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_atoms);
+	for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = pts[i];
+
+	// calculate centroid
+	Vector3d centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
+
+	// subtract centroid
+	coord.row(0).array() -= centroid(0); coord.row(1).array() -= centroid(1); coord.row(2).array() -= centroid(2);
+
+	// we only need the left-singular matrix here
+	//  http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+	auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+	Vector3d normal = svd.matrixU().rightCols<1>();
+
+	double3 result{ normal[0], normal[1], normal[2] };
+	result = normalize(result);
+	return result;
+}
+
+
+/*
+Estimate surface normals of all _input_points
+Input:
+	radius:		radius for creating neigbourhoods to fit normal for
+Output:
+	PlaneDetector_input_points.normal
+*/
+void PlaneDetector::_estimate_normals(double radius) {
+
+	for (int i = 0; i < _input_points.size(); i++) {
+
+		Point p = _input_points[i];
+		point_t pt { p.x, p.y, p.z };
+		pointVec pts = _kdtree.neighborhood_points(pt, radius);
+
+		std::vector<Vector3d> nhood;
+		for (int j = 0; j < pts.size(); j++) {
+			Vector3d v3_pt{ pts[j][0], pts[j][1], pts[j][2] };
+			nhood.push_back(v3_pt);
+		}
+		if (nhood.size() < 3) {
+			_input_points[i].normal = double3{ 0,0,0 };
+			continue;
+		}
+		_input_points[i].normal = norm_from_points(nhood);
+		if (i % 1000 == 0) {
+			std::cout << "yo";
+		}
+	}
+}
+
+
+/*
+Calculate A,B,C,D params of plane defined by 3 points.
 Input:
 	pts:		Vector of 3 points.
 Output:
@@ -142,6 +216,7 @@ std::vector<float> _plane(std::vector<double3> pts) {
 	return result;
 }
 
+
 /*
 Function that samples n unique unsegmented points from the _input_points
 Input: 
@@ -149,7 +224,7 @@ Input:
 Output:
 	std::vector of sampled <PlaneDetector::Point>s
 */
-std::vector<PlaneDetector::Point> PlaneDetector::sample(int n) {
+std::vector<PlaneDetector::Point> PlaneDetector::_sample(int n) {
 
 	std::vector<int> samples(n);
 	std::vector<Point> result(n);

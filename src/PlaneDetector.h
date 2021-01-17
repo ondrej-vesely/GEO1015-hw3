@@ -18,6 +18,14 @@
 #include <linalg/linalg.h>
 using double3 = linalg::aliases::double3;
 
+//-- KDtree lib https://github.com/crvs/KDTree
+#include "KDTree.hpp"
+
+//-- Eigen lib https://eigen.tuxfamily.org/dox/
+#include <Eigen/Core>
+#include <Eigen/Dense>
+using Vector3d = Eigen::Vector3d;
+
 /*
 The main class of this assignment. You are allowed to add functions and member variables for your own use.
 */
@@ -37,13 +45,11 @@ public:
 	struct Point : double3 {
 		using double3::double3;
 		int segment_id{ 0 };
+		double3 normal;
 	};
 	
 	//-- The main plane detection function where you need to implement the RANSAC algorithm (in the PlaneDetector.cpp file)
 	void detect_plane(double epsilon, int min_score, int k);
-
-	//-- Sample from yet unsegmented input points
-	std::vector<Point> sample(int n);
 
 	//-- .PLY reading (already implemented for you)
 	bool read_ply(std::string filepath);
@@ -59,6 +65,19 @@ private:
 
 	//-- Current count of segmented planes
 	int _plane_count = 0;
+
+	//-- Input points in kdtree
+	KDTree _kdtree;
+	bool _kdtree_built = false;
+
+	//-- Populate kdtree
+	void _build_kdtree();
+
+	//-- Estimate point normals by plane fitting n-hood of set radius
+	void _estimate_normals(double radius);
+
+	//-- Sample from yet unsegmented input points
+	std::vector<Point> _sample(int n);
 
 	//-- This variable holds the entire input point cloud after calling read_ply()
 	std::vector<Point> _input_points;
