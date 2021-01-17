@@ -43,34 +43,38 @@ Output:
 void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 
 	// Only on the first run
-	// Build kd-tree and compute normal estimates
+	// Build kd-tree 
 	if (!_kdtree_built) {
 		std::cout << "Building KD-Tree. \n";
 		_build_kdtree();
-		//std::cout << "Estimating normals of all points -> ";
-		//_estimate_normals(epsilon*2);
-		std::cout << "Done! \n";
+		std::cout << " Done! \n";
 		_kdtree_built = true;
+	}
+	// And compute surface normal estimates
+	if (!_normals_built && check_normals) {
+		std::cout << "Estimating normals of all points -> ";
+		_estimate_normals(normal_radius);
+		std::cout << " Done! \n";
+		_normals_built = true;
 	}
 
 	// Amount of inliers in best result
 	int best = {};
 	// Plane params in best result
 	Plane best_plane;
-	// Random chunk of the whole model
-	indexArr chunk = _chunk(25);
+	// Random fragment of the whole model
+	indexArr chunk = _chunk(chunk_size);
 
 	// Do k attempts to find best result for random chunk
 	for (int _k = 0; _k < k; _k++) {
 
-		// Sample 3 unsegmented points defining a plane
+		// Sample 3 unsegmented points defining a plane from the chunk
 		Plane plane = _plane(_sample(3, chunk));
 
-		// Loop trough all points in chunk
+		// Check for inliers of that plane
 		int score = 0;
 		for (int i = 0; i < chunk.size(); i++) {
 			Point& p = _input_points[chunk[i]];
-			// If it's an inlier, increase score
 			if (_is_inlier(p, plane, epsilon, false)) {
 				score++;
 			}
@@ -81,15 +85,10 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 			best_plane = plane;
 		}
 	}
-	// If the best found is better than threshold, create a new segment
+	// If best score out of k is better than threshold, create a new segment
 	if (best > min_score) {
-		_plane_count++;
-		for (int i = 0; i < _input_points.size(); i++) {
-			Point& p = _input_points[i];
-			if (_is_inlier(p, best_plane, epsilon, false)) {
-				p.segment_id = _plane_count;
-			}
-		}
+		if (chunk_extrapolate) _add_segment(best_plane, epsilon);
+		else _add_segment(best_plane, epsilon, chunk);
 	}
 }
 
@@ -111,7 +110,6 @@ void PlaneDetector::_build_kdtree() {
 	}
 	_kdtree = KDTree(points);
 }
-
 
 /*
 Calculate normal vector of a plane fitted trough a group of points
@@ -143,7 +141,6 @@ double3 norm_from_points(std::vector<Vector3d> pts)
 	return result;
 }
 
-
 /*
 Estimate surface normals of all _input_points
 Input:
@@ -156,7 +153,7 @@ void PlaneDetector::_estimate_normals(double radius) {
 	for (int i = 0; i < _input_points.size(); i++) {
 
 		Point& p = _input_points[i];
-		point_t pt { p.x, p.y, p.z };
+		point_t pt{ p.x, p.y, p.z };
 		pointVec pts = _kdtree.neighborhood_points(pt, radius);
 
 		std::vector<Vector3d> nhood;
@@ -167,12 +164,11 @@ void PlaneDetector::_estimate_normals(double radius) {
 		// catch small neighbourhoods
 		if (nhood.size() < 3) continue;
 		_input_points[i].normal = norm_from_points(nhood);
-		
-		if (i % 10000 == 0) std::cout << i/1000 << "k ";
+
+		if (i % 10000 == 0) std::cout << i / 1000 << "k ";
 		else if (i % 2000 == 0) std::cout << ".";
 	}
 }
-
 
 /*
 Calculate params of plane defined by 3 points.
@@ -205,7 +201,7 @@ Plane PlaneDetector::_plane(std::vector<Point> pts) {
 
 /*
 Sample n unique unsegmented points from the _input_points
-Input: 
+Input:
 	n:		Number of samples to find
 Output:
 	std::vector of sampled <PlaneDetector::Point>s
@@ -214,12 +210,12 @@ std::vector<Point> PlaneDetector::_sample(int n) {
 
 	std::vector<int> samples(n);
 	std::vector<Point> result(n);
-	std::uniform_int_distribution<int> distrib(0, _input_points.size()-1);
+	std::uniform_int_distribution<int> distrib(0, _input_points.size() - 1);
 
 	for (int i = 0; i < n; i++) {
 		int rand = distrib(_rand);
-		while (std::count(samples.begin(), samples.end(), rand) 
-			|| _input_points[rand].segment_id != 0) 
+		while (std::count(samples.begin(), samples.end(), rand)
+			|| _input_points[rand].segment_id != 0)
 		{
 			rand = distrib(_rand);
 		}
@@ -257,13 +253,12 @@ std::vector<Point> PlaneDetector::_sample(int n, indexArr chunk) {
 }
 
 indexArr PlaneDetector::_chunk(double radius) {
-	
+
 	Point p = _sample(1)[0];
 	point_t pt{ p.x, p.y, p.z };
 	indexArr indicies = _kdtree.neighborhood_indices(pt, radius);
 	return indicies;
 }
-
 
 /*
 Check if Point is an inlier of a Plane
@@ -276,7 +271,7 @@ Output:
 	bool
 */
 bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool check_normals) {
-	
+
 	if (p.segment_id != 0) return false;
 
 	double&
@@ -286,13 +281,50 @@ bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool chec
 		D = plane[3];
 
 	double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
-		if (dist_pow < epsilon * epsilon) {
-			if (!check_normals || p.normal == double3{ 0,0,0 } 
-				|| abs(linalg::dot(p.normal, plane.normal())) > 0.8) {
-				return true;
-			}
+	if (dist_pow < epsilon * epsilon) {
+		if (!check_normals || p.normal == double3{ 0,0,0 }
+			|| abs(linalg::dot(p.normal, plane.normal())) > normal_tol) {
+			return true;
 		}
+	}
 	return false;
+}
+
+/*
+Assign _input_points inside this Plane to a new segment.
+Input:
+	plane:			Plane to assign
+	epsilon:		Maximal distance from plane
+Output:
+	updated _input_points.segment_id
+*/
+void PlaneDetector::_add_segment(Plane& plane, double epsilon) {
+	_plane_count++;
+	for (int i = 0; i < _input_points.size(); i++) {
+		Point& p = _input_points[i];
+		if (_is_inlier(p, plane, epsilon, check_normals)) {
+			p.segment_id = _plane_count;
+		}
+	}
+}
+
+/*
+Assign _input_points from a chunk inside this Plane to a new segment.
+Input:
+	plane:			Plane to assign
+	epsilon:		Maximal distance from plane
+	chunk:			Vector of indicies of _input_points belonging to the chunk.
+Output:
+	updated _input_points.segment_id
+*/
+void PlaneDetector::_add_segment(Plane& plane, double epsilon, indexArr chunk) {
+	_plane_count++;
+	for (int i = 0; i < chunk.size(); i++) {
+		Point& p = _input_points[chunk[i]];
+		if (_is_inlier(p, plane, epsilon, check_normals)) {
+			p.segment_id = _plane_count;
+		}
+	}
 }
 
 
@@ -332,7 +364,7 @@ void PlaneDetector::write_ply(std::string filepath) {
 	file << "end_header" << "\n";
 
 	for (int i = 0; i < _input_points.size(); i++) {
-		sprintf(buffer, "%f %f %f %d", 
+		sprintf(buffer, "%f %f %f %d",
 			_input_points[i].x,
 			_input_points[i].y,
 			_input_points[i].z,

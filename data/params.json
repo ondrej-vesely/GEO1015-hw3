@@ -1,8 +1,13 @@
 {
-  "input_file": "bk_sub25m.ply",
+  "input_file": "bk.ply",
   "output_file": "out.ply",
   "n_planes": 15,
   "k": 1000,
   "min_score": 200,
-  "epsilon": 0.3
+  "epsilon": 0.3,
+  "chunk_size": 25.0,
+  "chunk_extrapolate": true,
+  "check_normals": false,
+  "normal_tol": 0.8,
+  "normal_radius": 1.0
 }

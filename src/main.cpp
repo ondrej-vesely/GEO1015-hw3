@@ -60,6 +60,26 @@ int main(int argc, char** argv)
 
 	PlaneDetector detector;
 
+	//-- I extend params.json with some addtional parameters
+	//-- If they are missing from the file, default defined in PlaneDetector are used.
+	try {
+		detector.chunk_size = j["chunk_size"];
+		detector.chunk_extrapolate = j["chunk_extrapolate"];
+		detector.check_normals = j["check_normals"];
+		detector.normal_tol = j["normal_tol"];
+		detector.normal_radius = j["normal_radius"];
+	}
+	catch (...) {
+		std::cout << "WARN: Your params.json seems to be missing some values.\n";
+	}
+	std::cout
+		<< "PARAMS: " << "\n"
+		<< "	chuck_size: " << detector.chunk_size << "\n"
+		<< "	chunk_segments: " << std::boolalpha << detector.chunk_extrapolate << "\n"
+		<< "	check_normals: " << std::boolalpha << detector.check_normals << "\n"
+		<< "	normal_tol: " << detector.normal_tol << "\n"
+		<< "	normal_radius: " << detector.normal_radius << "\n";
+
 	//-- read point cloud from input .ply file, exit if it fails
 	if (!detector.read_ply(input_file)) {
 		return 1;

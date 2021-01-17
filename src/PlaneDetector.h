@@ -55,6 +55,13 @@ public:
 			return double3{ x,y,z };
 		}
 	};
+
+	//-- Some extra params to be loaded from params.json
+	double chunk_size = 25;
+	bool chunk_extrapolate = true;
+	bool check_normals = false;
+	double normal_tol = 0.8;
+	double normal_radius = 1;
 	
 	//-- The main plane detection function where you need to implement the RANSAC algorithm (in the PlaneDetector.cpp file)
 	void detect_plane(double epsilon, int min_score, int k);
@@ -76,13 +83,12 @@ private:
 
 	//-- Input points in kdtree
 	KDTree _kdtree;
-	bool _kdtree_built = false;
-
-	//-- Populate kdtree
 	void _build_kdtree();
+	bool _kdtree_built = false;
 
 	//-- Estimate point normals by plane fitting n-hood of set radius
 	void _estimate_normals(double radius);
+	bool _normals_built = false;
 
 	//-- Sample from yet unsegmented input points
 	std::vector<Point> _sample(int n);
@@ -98,6 +104,12 @@ private:
 
 	//-- Check if point is inlier of a plane
 	bool _is_inlier(Point& p, Plane& plane, double epsilon, bool check_normals);
+
+	//-- Assign unsegmented inliers of plane to a new segment
+	void _add_segment(Plane& plane, double epsilon);
+
+	//-- Assign unsegmented inliers of plane from the chunk to a new segment
+	void _add_segment(Plane& plane, double epsilon, indexArr chunk);
 
 	//-- This variable holds the entire input point cloud after calling read_ply()
 	std::vector<Point> _input_points;
