@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 	PlaneDetector detector;
 
 	//-- I extend params.json with some addtional parameters
-	//-- If they are missing from the file, default defined in PlaneDetector are used.
+	//-- If they are missing in the file, defaults defined in PlaneDetector are used.
 	try {
 		detector.chunk_size = j["chunk_size"];
 		detector.chunk_extrapolate = j["chunk_extrapolate"];
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 	}
 	std::cout
 		<< "PARAMS: " << "\n"
-		<< "	chuck_size: " << detector.chunk_size << "\n"
+		<< "	chunk_size: " << detector.chunk_size << "\n"
 		<< "	chunk_segments: " << std::boolalpha << detector.chunk_extrapolate << "\n"
 		<< "	check_normals: " << std::boolalpha << detector.check_normals << "\n"
 		<< "	normal_tol: " << detector.normal_tol << "\n"

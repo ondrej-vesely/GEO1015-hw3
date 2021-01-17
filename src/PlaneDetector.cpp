@@ -47,10 +47,10 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 	if (!_kdtree_built) {
 		std::cout << "Building KD-Tree. \n";
 		_build_kdtree();
-		std::cout << " Done! \n";
+		std::cout << "KD-Tree built! \n";
 		_kdtree_built = true;
 	}
-	// And compute surface normal estimates
+	// And compute surface normal estimates if necessary
 	if (!_normals_built && check_normals) {
 		std::cout << "Estimating normals of all points -> ";
 		_estimate_normals(normal_radius);
@@ -58,17 +58,17 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		_normals_built = true;
 	}
 
-	// Amount of inliers in best result
-	int best = {};
-	// Plane params in best result
+	// Amount of inliers for the best result
+	int best_score = {};
+	// Plane params for the best result
 	Plane best_plane;
 	// Random fragment of the whole model
 	indexArr chunk = _chunk(chunk_size);
 
-	// Do k attempts to find best result for random chunk
+	// Do k attempts to find best result for current chunk
 	for (int _k = 0; _k < k; _k++) {
 
-		// Sample 3 unsegmented points defining a plane from the chunk
+		// Sample 3 unsegmented points defining a plane
 		Plane plane = _plane(_sample(3, chunk));
 
 		// Check for inliers of that plane
@@ -79,14 +79,14 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 				score++;
 			}
 		}
-		// Found new best result? Store it's params
-		if (score > best) {
-			best = score;
+		// Found new best plane? Store its parameters
+		if (score > best_score) {
+			best_score = score;
 			best_plane = plane;
 		}
 	}
 	// If best score out of k is better than threshold, create a new segment
-	if (best > min_score) {
+	if (best_score > min_score) {
 		if (chunk_extrapolate) _add_segment(best_plane, epsilon);
 		else _add_segment(best_plane, epsilon, chunk);
 	}
