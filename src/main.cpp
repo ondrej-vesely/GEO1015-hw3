@@ -75,6 +75,10 @@ int main(int argc, char** argv)
 	}
 	std::cout
 		<< "PARAMS: " << "\n"
+		<< "	n_planes: " << n_planes << "\n"
+		<< "	k: " << k << "\n"
+		<< "	min_score: " << min_score << "\n"
+		<< "	epsilon: " << epsilon << "\n"
 		<< "	chunk_size: " << detector.chunk_size << "\n"
 		<< "	chunk_extrapolate: " << std::boolalpha << detector.chunk_extrapolate << "\n"
 		<< "	check_normals: " << std::boolalpha << detector.check_normals << "\n"
