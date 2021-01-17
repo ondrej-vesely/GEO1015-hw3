@@ -17,6 +17,7 @@
 //-- See https://github.com/sgorsten/linalg
 #include <linalg/linalg.h>
 using double3 = linalg::aliases::double3;
+using double4 = linalg::aliases::double4;
 
 //-- KDtree lib https://github.com/crvs/KDTree
 #include "KDTree.hpp"
@@ -45,7 +46,14 @@ public:
 	struct Point : double3 {
 		using double3::double3;
 		int segment_id{ 0 };
-		double3 normal;
+		double3 normal{ 0,0,0 };
+	};
+
+	struct Plane : double4 {
+		using double4::double4;
+		double3 normal() {
+			return double3{ x,y,z };
+		}
 	};
 	
 	//-- The main plane detection function where you need to implement the RANSAC algorithm (in the PlaneDetector.cpp file)
@@ -78,6 +86,12 @@ private:
 
 	//-- Sample from yet unsegmented input points
 	std::vector<Point> _sample(int n);
+
+	//-- Create plane from 3 points
+	Plane _plane(std::vector<Point> pts);
+
+	//-- Check if point is inlier of a plane
+	bool _is_inlier(Point& p, Plane& plane, double epsilon, bool check_normals);
 
 	//-- This variable holds the entire input point cloud after calling read_ply()
 	std::vector<Point> _input_points;

@@ -17,6 +17,8 @@
 #include <algorithm>
 
 #include "PlaneDetector.h"
+using Point = PlaneDetector::Point;
+using Plane = PlaneDetector::Plane;
 
 /*
 !!! TO BE COMPLETED !!!
@@ -43,52 +45,36 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 	// Only on the first run
 	// Build kd-tree and compute normal estimates
 	if (!_kdtree_built) {
+		std::cout << "Building KD-Tree. \n";
 		_build_kdtree();
-		_estimate_normals(epsilon*2);
+		std::cout << "Estimating normals of all points -> ";
+		_estimate_normals(epsilon);
+		std::cout << "Done! \n";
 		_kdtree_built = true;
 	}
 
 	// Indices of pts in best result
 	std::vector<int> best = {};
+	best.reserve(_input_points.size());
 
 	// Do k attempts to find best result
 	for (int _k = 0; _k < k; _k++) {
 
-		// Sample 3 unique points
-		std::vector<Point> pts = _sample(3);
-		Point 
-			pt1 = pts[0], 
-			pt2 = pts[1], 
-			pt3 = pts[2];
-
-		// Get vectors of sampled plane
-		double3 v1 = { pt2.x - pt1.x , pt2.y - pt1.y , pt2.z - pt1.z };
-		double3 v2 = { pt3.x - pt1.x , pt3.y - pt1.y , pt3.z - pt1.z };
-		double3 norm = normalize(cross(v1, v2));
-
-		// Get params of sampled plane
-		double
-			A = norm[0],
-			B = norm[1],
-			C = norm[2],
-			D = -A * pt1.x - B * pt1.y - C * pt1.z;
+		// Sample 3 unsegmented points and crate a plane
+		Plane plane = _plane(_sample(3));
 
 		// Loop trough all points 
 		// Ignore point if its already in another segment
-		// Check if point is close enough and has similar normal
-		// If both yes, collect it's index
+		// If it's an inlier, collect it's index
 		std::vector<int> inliers = {};
+		inliers.reserve(_input_points.size());
 
 		for (int i = 0; i < _input_points.size(); i++) {
-			Point p = _input_points[i];
+			Point& p = _input_points[i];
 	
 			if (p.segment_id != 0) continue;
-
-			double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
-			if (dist_pow < epsilon * epsilon) {
-				if (abs(linalg::dot(norm, p.normal)) > 0.8 || p.normal == double3{ 0,0,0 }) {
-					inliers.push_back(i);
-				}
+			if (_is_inlier(p, plane, epsilon, true)) {
+				inliers.push_back(i);
 			}
 		}
 		// Found new best result?
@@ -176,34 +162,34 @@ void PlaneDetector::_estimate_normals(double radius) {
 			Vector3d v3_pt{ pts[j][0], pts[j][1], pts[j][2] };
 			nhood.push_back(v3_pt);
 		}
-		if (nhood.size() < 3) {
-			_input_points[i].normal = double3{ 0,0,0 };
-			continue;
-		}
+		// catch small neighbourhoods
+		if (nhood.size() < 3) continue;
+
 		_input_points[i].normal = norm_from_points(nhood);
-		if (i % 1000 == 0) {
-			std::cout << "yo";
-		}
+		
+		if (i % 10000 == 0) std::cout << i/1000 << "k ";
+		else if (i % 2000 == 0) std::cout << ".";
 	}
 }
 
 
 /*
-Calculate A,B,C,D params of plane defined by 3 points.
+Calculate params of plane defined by 3 points.
 Input:
-	pts:		Vector of 3 points.
+	pts:	Vector of 3 points.
 Output:
-	Vector of 4 floats defining plane as Ax+By+Cz+D=0.
+	Plane - vector of 4 doubles defining plane as Ax+By+Cz+D=0.
 */
-std::vector<float> _plane(std::vector<double3> pts) {
+Plane PlaneDetector::_plane(std::vector<Point> pts) {
 
-	double3
+	Point&
 		pt1 = pts[0],
 		pt2 = pts[1],
 		pt3 = pts[2];
 
-	double3 v1 = pt2 - pt1;
-	double3 v2 = pt3 - pt1;
+	// Get vectors of sampled plane
+	double3 v1 = { pt2.x - pt1.x , pt2.y - pt1.y , pt2.z - pt1.z };
+	double3 v2 = { pt3.x - pt1.x , pt3.y - pt1.y , pt3.z - pt1.z };
 	double3 norm = normalize(cross(v1, v2));
 
 	float
@@ -212,7 +198,7 @@ std::vector<float> _plane(std::vector<double3> pts) {
 		C = norm[2],
 		D = -A * pt1.x - B * pt1.y - C * pt1.z;
 
-	std::vector<float> result = { A, B, C, D };
+	Plane result = { A, B, C, D };
 	return result;
 }
 
@@ -234,15 +220,45 @@ std::vector<PlaneDetector::Point> PlaneDetector::_sample(int n) {
 
 	for (int i = 0; i < n; i++) {
 		int rand = distrib(_rand);
+		int limit = 100;
 		while (std::count(samples.begin(), samples.end(), rand) 
-			|| _input_points[rand].segment_id != 0) 
+			|| _input_points[rand].segment_id != 0 && limit > 0) 
 		{
 			rand = distrib(_rand);
+			limit--;
 		}
 		samples[i] = rand;
 		result[i] = _input_points[rand];
 	}
 	return result;
+}
+
+
+/*
+Check if Point is an inlier of a Plane
+Input:
+	p:				Point to query
+	plane:			Plane to query
+	epsilon:		Maximal distance from plane
+	check_normals:	Check if points and plane normal vectors match
+Output:
+	bool
+*/
+bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool check_normals) {
+	
+	double&
+		A = plane[0],
+		B = plane[1],
+		C = plane[2],
+		D = plane[3];
+
+	double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
+		if (dist_pow < epsilon * epsilon) {
+			if (!check_normals || abs(linalg::dot(p.normal, plane.normal())) > 0.9) {
+				return true;
+			}
+		}
+	return false;
 }
 
 
