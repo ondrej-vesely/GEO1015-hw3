@@ -87,6 +87,12 @@ private:
 	//-- Sample from yet unsegmented input points
 	std::vector<Point> _sample(int n);
 
+	//-- Sample from yet unsegmented input points inside the chunk
+	std::vector<Point> _sample(int n, indexArr chunk);
+
+	//-- Pick a spherical chunk from the input points
+	indexArr _chunk(double radius);
+
 	//-- Create plane from 3 points
 	Plane _plane(std::vector<Point> pts);
 

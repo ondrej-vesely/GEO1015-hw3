@@ -47,42 +47,48 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 	if (!_kdtree_built) {
 		std::cout << "Building KD-Tree. \n";
 		_build_kdtree();
-		std::cout << "Estimating normals of all points -> ";
-		_estimate_normals(epsilon*2);
+		//std::cout << "Estimating normals of all points -> ";
+		//_estimate_normals(epsilon*2);
 		std::cout << "Done! \n";
 		_kdtree_built = true;
 	}
 
-	// Indices of pts in best result
-	std::vector<int> best = {};
+	// Amount of inliers in best result
+	int best = {};
+	// Plane params in best result
+	Plane best_plane;
+	// Random chunk of the whole model
+	indexArr chunk = _chunk(25);
 
-	// Do k attempts to find best result
+	// Do k attempts to find best result for random chunk
 	for (int _k = 0; _k < k; _k++) {
 
-		// Sample 3 unsegmented points and crate a plane
-		Plane plane = _plane(_sample(3));
+		// Sample 3 unsegmented points defining a plane
+		Plane plane = _plane(_sample(3, chunk));
 
-		// Loop trough all points 
-		std::vector<int> inliers = {};
-		for (int i = 0; i < _input_points.size(); i++) {
-			Point& p = _input_points[i];
-			// Ignore point if its already in another segment
-			if (p.segment_id != 0) continue;
-			// If it's an inlier, collect it's index
-			if (_is_inlier(p, plane, epsilon, true)) {
-				inliers.push_back(i);
+		// Loop trough all points in chunk
+		int score = 0;
+		for (int i = 0; i < chunk.size(); i++) {
+			Point& p = _input_points[chunk[i]];
+			// If it's an inlier, increase score
+			if (_is_inlier(p, plane, epsilon, false)) {
+				score++;
 			}
 		}
-		// Found new best result?
-		if (inliers.size() > min_score && inliers.size() > best.size()) {
-			best = inliers;
+		// Found new best result? Store it's params
+		if (score > best) {
+			best = score;
+			best_plane = plane;
 		}
 	}
-	// If the best better than threshold, create a new plane
-	if (best.size() > min_score) {
+	// If the best found is better than threshold, create a new segment
+	if (best > min_score) {
 		_plane_count++;
-		for (int i = 0; i < best.size(); i++) {
-			_input_points[best[i]].segment_id = _plane_count;
+		for (int i = 0; i < _input_points.size(); i++) {
+			Point& p = _input_points[i];
+			if (_is_inlier(p, best_plane, epsilon, false)) {
+				p.segment_id = _plane_count;
+			}
 		}
 	}
 }
@@ -198,7 +204,7 @@ Plane PlaneDetector::_plane(std::vector<Point> pts) {
 }
 
 /*
-Function that samples n unique unsegmented points from the _input_points
+Sample n unique unsegmented points from the _input_points
 Input: 
 	n:		Number of samples to find
 Output:
@@ -223,6 +229,41 @@ std::vector<Point> PlaneDetector::_sample(int n) {
 	return result;
 }
 
+/*
+Sample n unique unsegmented points from the _input_points belonging to a chunk.
+Input:
+	n:		Number of samples to find
+	chunk:  Vector of indicies of _input_points belonging to the chunk.
+Output:
+	std::vector of sampled <PlaneDetector::Point>s
+*/
+std::vector<Point> PlaneDetector::_sample(int n, indexArr chunk) {
+
+	std::vector<int> samples(n);
+	std::vector<Point> result(n);
+	std::uniform_int_distribution<int> distrib(0, chunk.size() - 1);
+
+	for (int i = 0; i < n; i++) {
+		int rand = distrib(_rand);
+		while (std::count(samples.begin(), samples.end(), rand)
+			|| _input_points[chunk[rand]].segment_id != 0)
+		{
+			rand = distrib(_rand);
+		}
+		samples[i] = rand;
+		result[i] = _input_points[chunk[rand]];
+	}
+	return result;
+}
+
+indexArr PlaneDetector::_chunk(double radius) {
+	
+	Point p = _sample(1)[0];
+	point_t pt{ p.x, p.y, p.z };
+	indexArr indicies = _kdtree.neighborhood_indices(pt, radius);
+	return indicies;
+}
+
 
 /*
 Check if Point is an inlier of a Plane
@@ -236,6 +277,8 @@ Output:
 */
 bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool check_normals) {
 	
+	if (p.segment_id != 0) return false;
+
 	double&
 		A = plane[0],
 		B = plane[1],
