@@ -21,8 +21,6 @@ using Point = PlaneDetector::Point;
 using Plane = PlaneDetector::Plane;
 
 /*
-!!! TO BE COMPLETED !!!
-
 Function that implements the RANSAC algorithm to detect one plane in the point cloud that is
 accessible from _input_points variable (which contains the point read from the input ply file).
 
@@ -59,7 +57,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 	}
 
 	// Amount of inliers for the best result
-	int best_score = {};
+	int best_score = 0;
 	// Plane params for the best result
 	Plane best_plane;
 	// Random fragment of the whole model
@@ -75,7 +73,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		int score = 0;
 		for (int i = 0; i < chunk.size(); i++) {
 			Point& p = _input_points[chunk[i]];
-			if (_is_inlier(p, plane, epsilon, false)) {
+			if (_is_inlier(p, plane, epsilon, check_normals)) {
 				score++;
 			}
 		}
@@ -252,6 +250,13 @@ std::vector<Point> PlaneDetector::_sample(int n, indexArr chunk) {
 	return result;
 }
 
+/*
+Sample a random spherical cluster points from the _input_points.
+Input:
+	radius:		Radius of the group.
+Output:
+	Vector of indices of the _input_points within the chunk.
+*/
 indexArr PlaneDetector::_chunk(double radius) {
 
 	Point p = _sample(1)[0];
