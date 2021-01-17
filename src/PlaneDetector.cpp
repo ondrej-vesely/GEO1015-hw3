@@ -48,14 +48,13 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		std::cout << "Building KD-Tree. \n";
 		_build_kdtree();
 		std::cout << "Estimating normals of all points -> ";
-		_estimate_normals(epsilon);
+		_estimate_normals(epsilon*2);
 		std::cout << "Done! \n";
 		_kdtree_built = true;
 	}
 
 	// Indices of pts in best result
 	std::vector<int> best = {};
-	best.reserve(_input_points.size());
 
 	// Do k attempts to find best result
 	for (int _k = 0; _k < k; _k++) {
@@ -64,15 +63,12 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		Plane plane = _plane(_sample(3));
 
 		// Loop trough all points 
-		// Ignore point if its already in another segment
-		// If it's an inlier, collect it's index
 		std::vector<int> inliers = {};
-		inliers.reserve(_input_points.size());
-
 		for (int i = 0; i < _input_points.size(); i++) {
 			Point& p = _input_points[i];
-	
+			// Ignore point if its already in another segment
 			if (p.segment_id != 0) continue;
+			// If it's an inlier, collect it's index
 			if (_is_inlier(p, plane, epsilon, true)) {
 				inliers.push_back(i);
 			}
@@ -103,7 +99,7 @@ void PlaneDetector::_build_kdtree() {
 	std::vector<std::vector<double>> points;
 
 	for (int i = 0; i < _input_points.size(); i++) {
-		Point p = _input_points[i];
+		Point& p = _input_points[i];
 		std::vector<double> pt = { p.x, p.y, p.z };
 		points.push_back(pt);
 	}
@@ -153,7 +149,7 @@ void PlaneDetector::_estimate_normals(double radius) {
 
 	for (int i = 0; i < _input_points.size(); i++) {
 
-		Point p = _input_points[i];
+		Point& p = _input_points[i];
 		point_t pt { p.x, p.y, p.z };
 		pointVec pts = _kdtree.neighborhood_points(pt, radius);
 
@@ -164,7 +160,6 @@ void PlaneDetector::_estimate_normals(double radius) {
 		}
 		// catch small neighbourhoods
 		if (nhood.size() < 3) continue;
-
 		_input_points[i].normal = norm_from_points(nhood);
 		
 		if (i % 10000 == 0) std::cout << i/1000 << "k ";
@@ -202,7 +197,6 @@ Plane PlaneDetector::_plane(std::vector<Point> pts) {
 	return result;
 }
 
-
 /*
 Function that samples n unique unsegmented points from the _input_points
 Input: 
@@ -210,22 +204,18 @@ Input:
 Output:
 	std::vector of sampled <PlaneDetector::Point>s
 */
-std::vector<PlaneDetector::Point> PlaneDetector::_sample(int n) {
+std::vector<Point> PlaneDetector::_sample(int n) {
 
 	std::vector<int> samples(n);
 	std::vector<Point> result(n);
 	std::uniform_int_distribution<int> distrib(0, _input_points.size()-1);
 
-	if (n > _input_points.size()) return _input_points;
-
 	for (int i = 0; i < n; i++) {
 		int rand = distrib(_rand);
-		int limit = 100;
 		while (std::count(samples.begin(), samples.end(), rand) 
-			|| _input_points[rand].segment_id != 0 && limit > 0) 
+			|| _input_points[rand].segment_id != 0) 
 		{
 			rand = distrib(_rand);
-			limit--;
 		}
 		samples[i] = rand;
 		result[i] = _input_points[rand];
@@ -254,7 +244,8 @@ bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool chec
 
 	double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
 		if (dist_pow < epsilon * epsilon) {
-			if (!check_normals || abs(linalg::dot(p.normal, plane.normal())) > 0.9) {
+			if (!check_normals || p.normal == double3{ 0,0,0 } 
+				|| abs(linalg::dot(p.normal, plane.normal())) > 0.8) {
 				return true;
 			}
 		}
