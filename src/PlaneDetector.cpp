@@ -71,7 +71,7 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 		// Sample 3 unsegmented points defining a plane
 		Plane plane = _plane(_sample(3, chunk));
 
-		// Check for inliers of that plane
+		// Find inliers of that plane
 		int score = 0;
 		for (int i = 0; i < chunk.size(); i++) {
 			Point& p = _input_points[chunk[i]];
@@ -79,13 +79,13 @@ void PlaneDetector::detect_plane(double epsilon, int min_score, int k) {
 				score++;
 			}
 		}
-		// Found new best plane? Store its parameters
+		// Found new best plane? -> Store its parameters
 		if (score > best_score) {
 			best_score = score;
 			best_plane = plane;
 		}
 	}
-	// If best score out of k is better than threshold, create a new segment
+	// If best score is better than threshold, create a new segment
 	if (best_score > min_score) {
 		if (chunk_extrapolate) _add_segment(best_plane, epsilon);
 		else _add_segment(best_plane, epsilon, chunk);

@@ -70,12 +70,13 @@ int main(int argc, char** argv)
 		detector.normal_radius = j["normal_radius"];
 	}
 	catch (...) {
-		std::cout << "WARN: Your params.json seems to be missing some values.\n";
+		std::cout << "WARN: Your params.json seems to be missing some values.\n"
+				  << "		See params below for reference.\n";
 	}
 	std::cout
 		<< "PARAMS: " << "\n"
 		<< "	chunk_size: " << detector.chunk_size << "\n"
-		<< "	chunk_segments: " << std::boolalpha << detector.chunk_extrapolate << "\n"
+		<< "	chunk_extrapolate: " << std::boolalpha << detector.chunk_extrapolate << "\n"
 		<< "	check_normals: " << std::boolalpha << detector.check_normals << "\n"
 		<< "	normal_tol: " << detector.normal_tol << "\n"
 		<< "	normal_radius: " << detector.normal_radius << "\n";
