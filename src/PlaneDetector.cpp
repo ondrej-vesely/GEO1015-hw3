@@ -150,6 +150,8 @@ void PlaneDetector::_estimate_normals(double radius) {
 
 	for (int i = 0; i < _input_points.size(); i++) {
 
+		if (i == 1460000) break;
+
 		Point& p = _input_points[i];
 		point_t pt{ p.x, p.y, p.z };
 		pointVec pts = _kdtree.neighborhood_points(pt, radius);
@@ -163,8 +165,7 @@ void PlaneDetector::_estimate_normals(double radius) {
 		if (nhood.size() < 3) continue;
 		_input_points[i].normal = norm_from_points(nhood);
 
-		if (i % 10000 == 0) std::cout << i / 1000 << "k ";
-		else if (i % 2000 == 0) std::cout << ".";
+		if (i % 100000 == 0) std::cout << ".";
 	}
 }
 
