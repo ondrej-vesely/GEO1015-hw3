@@ -285,8 +285,8 @@ bool PlaneDetector::_is_inlier(Point& p, Plane& plane, double epsilon, bool chec
 		C = plane[2],
 		D = plane[3];
 
-	double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / (A * A + B * B + C * C);
-	if (dist_pow < epsilon * epsilon) {
+	double dist_pow = abs(A * p.x + B * p.y + C * p.z + D) / sqrt(A * A + B * B + C * C);
+	if (dist_pow < epsilon) {
 		if (!check_normals || p.normal == double3{ 0,0,0 }
 			|| abs(linalg::dot(p.normal, plane.normal())) > normal_tol) {
 			return true;
